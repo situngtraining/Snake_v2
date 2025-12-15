@@ -1,0 +1,196 @@
+<!DOCTYPE html><html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <title>Rắn Săn Mồi Online</title>
+  <meta name="description" content="Game rắn săn mồi online có màn hình Start và Restart">
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #141e30, #243b55);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }.screen {
+  text-align: center;
+  display: none;
+}
+
+.screen.active {
+  display: block;
+}
+
+h1 {
+  font-size: 42px;
+  margin-bottom: 20px;
+}
+
+button {
+  padding: 12px 28px;
+  font-size: 18px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #00ff99;
+  transition: 0.2s;
+}
+
+button:hover {
+  transform: scale(1.05);
+}
+
+canvas {
+  background: #000;
+  border: 3px solid #00ff99;
+  display: block;
+  margin: auto;
+}
+
+.score {
+  margin-top: 10px;
+  font-size: 20px;
+}
+
+  </style>
+</head>
+<body>  <!-- START SCREEN -->  <div id="startScreen" class="screen active">
+    <h1>🐍 RẮN SĂN MỒI</h1>
+    <button onclick="startGame()">START</button>
+  </div>  <!-- GAME SCREEN -->  <div id="gameScreen" class="screen">
+    <canvas id="game" width="420" height="420"></canvas>
+    <div style="margin-top:8px;font-size:14px;opacity:0.85">
+      Vuốt để điều khiển • <button onclick="toggleFullscreen()" style="padding:6px 12px;font-size:14px;border-radius:6px;border:none;cursor:pointer">Fullscreen</button>
+    </div>
+    <div class="score">Điểm: <span id="score">0</span> | Cao nhất: <span id="highScore">0</span></div>
+  </div>  <!-- GAME OVER SCREEN -->  <div id="gameOverScreen" class="screen">
+    <h1>💀 GAME OVER</h1>
+    <p>Điểm của bạn: <span id="finalScore">0</span></p>
+    <button onclick="restartGame()">RESTART</button>
+  </div>  <script>
+    const startScreen = document.getElementById('startScreen');
+    const gameScreen = document.getElementById('gameScreen');
+    const gameOverScreen = document.getElementById('gameOverScreen');
+
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const highScoreKey = 'snake_high_score';
+    let highScore = localStorage.getItem(highScoreKey) || 0;
+    const finalScoreEl = document.getElementById('finalScore');
+
+    const box = 20;
+    const size = 20;
+    let snake, direction, food, score, game;
+
+    document.addEventListener('keydown', changeDirection);
+
+    // Touch control for mobile
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    canvas.addEventListener('touchstart', e => {
+      const t = e.touches[0];
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+    });
+
+    canvas.addEventListener('touchend', e => {
+      const t = e.changedTouches[0];
+      const dx = t.clientX - touchStartX;
+      const dy = t.clientY - touchStartY;
+
+      if (Math.abs(dx) > Math.abs(dy)) {
+        if (dx > 0 && direction !== 'LEFT') direction = 'RIGHT';
+        else if (dx < 0 && direction !== 'RIGHT') direction = 'LEFT';
+      } else {
+        if (dy > 0 && direction !== 'UP') direction = 'DOWN';
+        else if (dy < 0 && direction !== 'DOWN') direction = 'UP';
+      }
+    });
+
+    function showScreen(screen) {
+      startScreen.classList.remove('active');
+      gameScreen.classList.remove('active');
+      gameOverScreen.classList.remove('active');
+      screen.classList.add('active');
+    }
+
+    function startGame() {
+      showScreen(gameScreen);
+      initGame();
+      game = setInterval(drawGame, 120);
+    }
+
+    function restartGame() {
+      showScreen(gameScreen);
+      initGame();
+      game = setInterval(drawGame, 120);
+    }
+
+    function initGame() {
+      clearInterval(game);
+      snake = [{ x: 10, y: 10 }];
+      direction = 'RIGHT';
+      food = randomFood();
+      score = 0;
+      scoreEl.textContent = score;
+      document.getElementById('highScore').textContent = highScore;
+    }
+
+    function randomFood() {
+      return {
+        x: Math.floor(Math.random() * size),
+        y: Math.floor(Math.random() * size)
+      };
+    }
+
+    function changeDirection(e) {
+      const k = e.keyCode;
+      if (k === 37 && direction !== 'RIGHT') direction = 'LEFT';
+      else if (k === 38 && direction !== 'DOWN') direction = 'UP';
+      else if (k === 39 && direction !== 'LEFT') direction = 'RIGHT';
+      else if (k === 40 && direction !== 'UP') direction = 'DOWN';
+    }
+
+    function drawGame() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      snake.forEach((p, i) => {
+        ctx.fillStyle = i === 0 ? '#00ff99' : '#66ffcc';
+        ctx.fillRect(p.x * box, p.y * box, box, box);
+      });
+
+      ctx.fillStyle = 'red';
+      ctx.fillRect(food.x * box, food.y * box, box, box);
+
+      let head = { ...snake[0] };
+      if (direction === 'LEFT') head.x--;
+      if (direction === 'RIGHT') head.x++;
+      if (direction === 'UP') head.y--;
+      if (direction === 'DOWN') head.y++;
+
+      if (head.x === food.x && head.y === food.y) {
+        score++;
+        scoreEl.textContent = score;
+        food = randomFood();
+      } else {
+        snake.pop();
+      }
+
+      if (head.x < 0 || head.y < 0 || head.x >= size || head.y >= size) return endGame();
+      for (let p of snake) {
+        if (head.x === p.x && head.y === p.y) return endGame();
+      }
+
+      snake.unshift(head);
+    }
+
+    function endGame() {
+      clearInterval(game);
+      finalScoreEl.textContent = score;
+      showScreen(gameOverScreen);
+    }
+  </script></body>
+</html>
